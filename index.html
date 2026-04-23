@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>A/B CRO Test Calculator</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap">
+    <h1>A/B CRO Test Calculator</h1>
+    <p>Plan experiments and evaluate results with statistical rigour</p>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <nav class="tab-nav">
+    <button class="tab-btn active" data-tab="part1">
+      <span class="tab-num">1</span> Sample Size &amp; Duration
+    </button>
+    <button class="tab-btn" data-tab="part2">
+      <span class="tab-num">2</span> Test Evaluation
+    </button>
+  </nav>
+
+  <!-- ================================================================
+       PART 1 — SAMPLE SIZE & DURATION
+       ================================================================ -->
+  <section id="part1" class="tab-pane active">
+    <div class="two-col">
+
+      <div class="card">
+        <h2 class="card-title">Test Parameters</h2>
+
+        <div class="field">
+          <label for="p1-cr">Baseline Conversion Rate (%)</label>
+          <input id="p1-cr" type="number" value="5" min="0.01" max="99" step="0.01">
+          <p class="hint">Your current conversion rate before the test</p>
+        </div>
+
+        <div class="field">
+          <label for="p1-visitors">Daily Visitors to Test Pages</label>
+          <input id="p1-visitors" type="number" value="1000" min="1" step="1">
+          <p class="hint">Total daily visitors split equally across both variations</p>
+        </div>
+
+        <div class="field">
+          <label for="p1-mde">Minimum Detectable Effect — MDE (%)</label>
+          <input id="p1-mde" type="number" value="10" min="0.1" max="500" step="0.1">
+          <p class="hint">Relative uplift you want to detect (e.g. 10 = 10% relative improvement over baseline)</p>
+        </div>
+
+        <div class="field">
+          <label for="p1-sig">Statistical Significance</label>
+          <select id="p1-sig">
+            <option value="0.95">95%</option>
+            <option value="0.98">98%</option>
+            <option value="0.99">99%</option>
+          </select>
+        </div>
+
+        <div class="field" style="margin-bottom:0">
+          <label for="p1-power">Statistical Power</label>
+          <select id="p1-power">
+            <option value="0.80">80% (standard)</option>
+            <option value="0.90">90% (high confidence)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="results-stack">
+
+        <div class="card">
+          <h2 class="card-title">Required Sample Size</h2>
+          <div class="metric-row">
+            <div class="metric">
+              <div class="metric-val" id="p1-n-per">—</div>
+              <div class="metric-lbl">Per Variation</div>
+            </div>
+            <div class="metric">
+              <div class="metric-val" id="p1-n-total">—</div>
+              <div class="metric-lbl">Total Visitors</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">Estimated Test Duration</h2>
+          <div class="duration-display">
+            <div class="duration-num" id="p1-days">—</div>
+            <div class="duration-unit">days</div>
+            <div class="duration-weeks" id="p1-weeks"></div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom:0">
+          <h2 class="card-title">Test Details</h2>
+          <table class="detail-table">
+            <tr><th>Baseline conversion rate</th><td id="p1-d-cr">—</td></tr>
+            <tr><th>Target CR with MDE applied</th><td id="p1-d-target">—</td></tr>
+            <tr><th>Absolute difference</th><td id="p1-d-abs">—</td></tr>
+            <tr><th>Visitors per variation per day</th><td id="p1-d-daily">—</td></tr>
+          </table>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================================
+       PART 2 — TEST EVALUATION
+       ================================================================ -->
+  <section id="part2" class="tab-pane">
+
+    <div class="card">
+      <h2 class="card-title">Test Results Data</h2>
+      <div class="two-col">
+        <div>
+          <div class="variation-label control">Control (A)</div>
+          <div class="field">
+            <label for="p2-va">Visitors A</label>
+            <input id="p2-va" type="number" min="1" step="1" placeholder="e.g. 10000">
+          </div>
+          <div class="field" style="margin-bottom:0">
+            <label for="p2-ca">Conversions A</label>
+            <input id="p2-ca" type="number" min="0" step="1" placeholder="e.g. 500">
+          </div>
+        </div>
+        <div>
+          <div class="variation-label variant">Variant (B)</div>
+          <div class="field">
+            <label for="p2-vb">Visitors B</label>
+            <input id="p2-vb" type="number" min="1" step="1" placeholder="e.g. 10000">
+          </div>
+          <div class="field" style="margin-bottom:0">
+            <label for="p2-cb">Conversions B</label>
+            <input id="p2-cb" type="number" min="0" step="1" placeholder="e.g. 530">
+          </div>
+        </div>
+      </div>
+
+      <hr class="divider">
+
+      <div class="field" style="margin-bottom:0">
+        <label>Test Type</label>
+        <div class="toggle-group">
+          <button class="toggle-btn active" data-mode="standard">Standard A/B Test</button>
+          <button class="toggle-btn" data-mode="dnh">Do Not Harm</button>
+        </div>
+        <p class="hint" id="p2-mode-hint">
+          Tests whether Variant B shows a statistically significant improvement over Control A.
+        </p>
+      </div>
+    </div>
+
+    <div id="p2-alerts"></div>
+
+    <div id="p2-empty" class="card empty-state">
+      Enter your test data above to see results
+    </div>
+
+    <div id="p2-results" class="hidden">
+
+      <div class="card">
+        <h2 class="card-title">Summary</h2>
+        <div class="metric-row three">
+          <div class="metric">
+            <div class="metric-val" id="p2-cra">—</div>
+            <div class="metric-lbl">Conversion Rate A</div>
+          </div>
+          <div class="metric">
+            <div class="metric-val" id="p2-crb">—</div>
+            <div class="metric-lbl">Conversion Rate B</div>
+          </div>
+          <div class="metric">
+            <div class="metric-val" id="p2-uplift">—</div>
+            <div class="metric-lbl">Relative Uplift</div>
+          </div>
+        </div>
+        <div class="metric-row three" style="margin-top:.75rem">
+          <div class="metric">
+            <div class="metric-val" id="p2-z">—</div>
+            <div class="metric-lbl">Z-Score</div>
+          </div>
+          <div class="metric">
+            <div class="metric-val" id="p2-pval">—</div>
+            <div class="metric-lbl" id="p2-pval-lbl">P-Value</div>
+          </div>
+          <div class="metric">
+            <div class="metric-val" id="p2-power">—</div>
+            <div class="metric-lbl">Observed Power</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 class="card-title" id="p2-result-title">Results by Confidence Level</h2>
+        <p class="card-desc" id="p2-result-desc"></p>
+        <div class="conf-table-wrap">
+          <table class="conf-table">
+            <thead>
+              <tr>
+                <th></th>
+                <th>95% Confidence</th>
+                <th>98% Confidence</th>
+                <th>99% Confidence</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Result</td>
+                <td id="r-95">—</td>
+                <td id="r-98">—</td>
+                <td id="r-99">—</td>
+              </tr>
+              <tr>
+                <td id="crit-lbl">Critical Z</td>
+                <td id="z-95">—</td>
+                <td id="z-98">—</td>
+                <td id="z-99">—</td>
+              </tr>
+              <tr>
+                <td>Your Z-Score</td>
+                <td id="yz-95">—</td>
+                <td id="yz-98">—</td>
+                <td id="yz-99">—</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:0">
+        <h2 class="card-title">Statistical Details</h2>
+        <table class="detail-table">
+          <tr><th>Visitors A</th><td id="det-va">—</td></tr>
+          <tr><th>Conversions A</th><td id="det-ca">—</td></tr>
+          <tr><th>Conversion Rate A</th><td id="det-cra">—</td></tr>
+          <tr><th>Visitors B</th><td id="det-vb">—</td></tr>
+          <tr><th>Conversions B</th><td id="det-cb">—</td></tr>
+          <tr><th>Conversion Rate B</th><td id="det-crb">—</td></tr>
+          <tr><th>Standard Error A</th><td id="det-sea">—</td></tr>
+          <tr><th>Standard Error B</th><td id="det-seb">—</td></tr>
+          <tr><th>SE of difference (unpooled)</th><td id="det-sed">—</td></tr>
+          <tr><th>Z-Score</th><td id="det-z">—</td></tr>
+        </table>
+      </div>
+
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <p>A/B CRO Test Calculator &mdash; Frequentist two-proportion Z-test &mdash; One-sided hypothesis</p>
+  </div>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>
