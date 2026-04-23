@@ -57,6 +57,11 @@ const ZCRIT = {
   p90: phiInv(0.90),  // ≈ 1.2816
 };
 
+// Normal probability density function
+function normalPDF(z) {
+  return Math.exp(-0.5 * z * z) / Math.sqrt(2 * Math.PI);
+}
+
 /* =====================================================================
    HELPERS
    ===================================================================== */
@@ -267,6 +272,206 @@ function calcPart2() {
 
   resultsEl.classList.remove('hidden');
   emptyEl.classList.add('hidden');
+
+  // Draw chart after results are visible (so canvas has layout width)
+  requestAnimationFrame(() => drawChart(z, testMode));
+}
+
+// Redraw chart on window resize
+let resizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    const canvas = el('p2-canvas');
+    if (canvas && !el('p2-results').classList.contains('hidden')) {
+      const z = parseFloat(el('p2-z').textContent);
+      if (!isNaN(z)) drawChart(z, testMode);
+    }
+  }, 150);
+});
+
+/* =====================================================================
+   DISTRIBUTION CHART
+   ===================================================================== */
+
+function drawChart(z, mode) {
+  const canvas = el('p2-canvas');
+  if (!canvas) return;
+
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const cssW = canvas.parentElement.clientWidth - 48; // subtract card padding
+  const cssH = 220;
+
+  canvas.style.width  = cssW + 'px';
+  canvas.style.height = cssH + 'px';
+  canvas.width  = Math.round(cssW * dpr);
+  canvas.height = Math.round(cssH * dpr);
+  ctx.scale(dpr, dpr);
+
+  const W = cssW, H = cssH;
+  const padL = 24, padR = 24, padTop = 32, padBottom = 38;
+  const plotW = W - padL - padR;
+  const plotH = H - padTop - padBottom;
+  const zMin = -4, zMax = 4;
+  const maxPDF = normalPDF(0);
+
+  function zToX(zv) {
+    return padL + ((zv - zMin) / (zMax - zMin)) * plotW;
+  }
+  function pdfToY(pdf) {
+    return padTop + plotH - (pdf / maxPDF) * plotH * 0.9;
+  }
+
+  // Fill area under curve between two z values
+  function fillRegion(z1, z2, color) {
+    const cz1 = Math.max(z1, zMin);
+    const cz2 = Math.min(z2, zMax);
+    if (cz1 >= cz2) return;
+    const steps = 120;
+    const dz = (cz2 - cz1) / steps;
+    ctx.beginPath();
+    ctx.moveTo(zToX(cz1), pdfToY(0));
+    for (let i = 0; i <= steps; i++) {
+      const zi = cz1 + i * dz;
+      ctx.lineTo(zToX(zi), pdfToY(normalPDF(zi)));
+    }
+    ctx.lineTo(zToX(cz2), pdfToY(0));
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+  }
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Subtle vertical gridlines
+  ctx.strokeStyle = '#e2e8f0';
+  ctx.lineWidth = 1;
+  [-3, -2, -1, 0, 1, 2, 3].forEach(v => {
+    ctx.beginPath();
+    ctx.moveTo(zToX(v), padTop);
+    ctx.lineTo(zToX(v), padTop + plotH);
+    ctx.stroke();
+  });
+
+  // Base bell curve fill
+  fillRegion(zMin, zMax, 'rgba(219,234,254,0.35)');
+
+  // Layered significance zones (lightest → darkest, outermost → innermost)
+  if (mode === 'standard') {
+    fillRegion(ZCRIT[95], zMax, 'rgba(134,239,172,0.50)');
+    fillRegion(ZCRIT[98], zMax, 'rgba(74,222,128,0.55)');
+    fillRegion(ZCRIT[99], zMax, 'rgba(22,163,74,0.60)');
+  } else {
+    fillRegion(zMin, -ZCRIT[95], 'rgba(252,165,165,0.50)');
+    fillRegion(zMin, -ZCRIT[98], 'rgba(248,113,113,0.55)');
+    fillRegion(zMin, -ZCRIT[99], 'rgba(220,38,38,0.60)');
+  }
+
+  // Bell curve outline
+  ctx.beginPath();
+  const steps = 300;
+  for (let i = 0; i <= steps; i++) {
+    const zi = zMin + (i / steps) * (zMax - zMin);
+    if (i === 0) ctx.moveTo(zToX(zi), pdfToY(normalPDF(zi)));
+    else         ctx.lineTo(zToX(zi), pdfToY(normalPDF(zi)));
+  }
+  ctx.strokeStyle = '#1d4ed8';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([]);
+  ctx.stroke();
+
+  // X-axis baseline
+  ctx.beginPath();
+  ctx.moveTo(padL, padTop + plotH);
+  ctx.lineTo(W - padR, padTop + plotH);
+  ctx.strokeStyle = '#cbd5e1';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  // Critical value dashed lines
+  const critLines = mode === 'standard'
+    ? [{ zv: ZCRIT[95], label: '95%' }, { zv: ZCRIT[98], label: '98%' }, { zv: ZCRIT[99], label: '99%' }]
+    : [{ zv: -ZCRIT[99], label: '99%' }, { zv: -ZCRIT[98], label: '98%' }, { zv: -ZCRIT[95], label: '95%' }];
+
+  const critColors = ['#9ca3af', '#6b7280', '#374151'];
+  ctx.font = `10px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif`;
+
+  critLines.forEach(({ zv, label }, i) => {
+    const x = zToX(zv);
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath();
+    ctx.moveTo(x, padTop);
+    ctx.lineTo(x, padTop + plotH);
+    ctx.strokeStyle = critColors[i];
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.fillStyle = critColors[i];
+    ctx.textAlign = 'center';
+    ctx.fillText(label, x, padTop - 10);
+  });
+
+  // Observed z-score vertical line
+  const clampedZ = Math.min(Math.max(z, zMin + 0.01), zMax - 0.01);
+  const zX = zToX(clampedZ);
+
+  const lineColor = mode === 'standard'
+    ? (z > ZCRIT[95] ? '#15803d' : '#1d4ed8')
+    : (z < -ZCRIT[95] ? '#b91c1c' : '#15803d');
+
+  ctx.beginPath();
+  ctx.moveTo(zX, padTop - 4);
+  ctx.lineTo(zX, padTop + plotH);
+  ctx.strokeStyle = lineColor;
+  ctx.lineWidth = 2.5;
+  ctx.setLineDash([]);
+  ctx.stroke();
+
+  // Arrow head at top of z-score line
+  ctx.beginPath();
+  ctx.moveTo(zX, padTop - 4);
+  ctx.lineTo(zX - 4, padTop + 6);
+  ctx.lineTo(zX + 4, padTop + 6);
+  ctx.closePath();
+  ctx.fillStyle = lineColor;
+  ctx.fill();
+
+  // Z-score label at bottom
+  ctx.font = `bold 11px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif`;
+  ctx.fillStyle = lineColor;
+  ctx.textAlign = 'center';
+  // Offset label slightly if it overlaps a critical value line
+  const labelY = padTop + plotH + 14;
+  ctx.fillText(`z = ${z.toFixed(3)}`, zX, labelY);
+
+  // X-axis tick labels
+  ctx.font = `10px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif`;
+  ctx.fillStyle = '#94a3b8';
+  [-4, -3, -2, -1, 0, 1, 2, 3, 4].forEach(v => {
+    ctx.textAlign = 'center';
+    ctx.fillText(v, zToX(v), padTop + plotH + 26);
+  });
+
+  // Update legend HTML
+  if (mode === 'standard') {
+    setText('p2-chart-desc', 'Green shaded regions show where Variant B would be statistically significant. Your Z-score (arrow) needs to land in a shaded zone to reach that confidence level.');
+    setHTML('p2-chart-legend', `
+      <div class="legend-item"><span class="legend-swatch" style="background:rgba(134,239,172,0.7)"></span>Significant at 95%</div>
+      <div class="legend-item"><span class="legend-swatch" style="background:rgba(74,222,128,0.8)"></span>Significant at 98%</div>
+      <div class="legend-item"><span class="legend-swatch" style="background:rgba(22,163,74,0.85)"></span>Significant at 99%</div>
+      <div class="legend-item"><span class="legend-swatch" style="background:${lineColor};opacity:.8"></span>Your Z-score (${z.toFixed(3)})</div>
+    `);
+  } else {
+    setText('p2-chart-desc', 'Red shaded regions show where Variant B would be causing statistically significant harm. Your Z-score (arrow) must stay outside the red zones to pass Do Not Harm.');
+    setHTML('p2-chart-legend', `
+      <div class="legend-item"><span class="legend-swatch" style="background:rgba(252,165,165,0.7)"></span>Harm detected at 95%</div>
+      <div class="legend-item"><span class="legend-swatch" style="background:rgba(248,113,113,0.8)"></span>Harm detected at 98%</div>
+      <div class="legend-item"><span class="legend-swatch" style="background:rgba(220,38,38,0.85)"></span>Harm detected at 99%</div>
+      <div class="legend-item"><span class="legend-swatch" style="background:${lineColor};opacity:.8"></span>Your Z-score (${z.toFixed(3)})</div>
+    `);
+  }
 }
 
 /* =====================================================================
