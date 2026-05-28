@@ -1,272 +1,1177 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>A/B CRO Test Calculator</title>
-  <link rel="stylesheet" href="styles.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CRO A/B Testing Suite</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: #f1f5f9;
+      background-image:
+        radial-gradient(ellipse 60% 50% at 10% 0%, rgba(99,102,241,0.06) 0%, transparent 70%),
+        radial-gradient(ellipse 40% 40% at 90% 100%, rgba(124,58,237,0.05) 0%, transparent 70%);
+      min-height: 100vh;
+    }
+
+    /* ── TABS ──────────────────────────────────────────── */
+    .tab-btn {
+      transition: all 0.2s ease; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      gap: 7px; font-weight: 600; font-size: 13.5px;
+    }
+    .tab-btn.active {
+      background: linear-gradient(135deg, #4338ca, #6366f1);
+      color: white;
+      box-shadow: 0 4px 14px rgba(79,70,229,0.38);
+    }
+    .tab-btn:not(.active) { color: #64748b; }
+    .tab-btn:not(.active):hover { background: #f1f5f9; color: #334155; }
+
+    .tab-pane { display: none; }
+    .tab-pane.active { display: block; animation: fadeUp 0.22s ease; }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── CARDS ─────────────────────────────────────────── */
+    .card {
+      background: #fff; border-radius: 16px; padding: 22px;
+      border: 1px solid rgba(15,23,42,0.06);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.04), 0 16px 32px rgba(0,0,0,0.03);
+    }
+    .card-lift { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+    .card-lift:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05), 0 8px 20px rgba(0,0,0,0.07), 0 24px 48px rgba(0,0,0,0.05);
+    }
+
+    /* ── KPI CARDS ─────────────────────────────────────── */
+    .kpi {
+      border-radius: 16px; padding: 20px; color: white;
+      position: relative; overflow: hidden;
+    }
+    .kpi::before {
+      content: ''; position: absolute; top: -18px; right: -18px;
+      width: 90px; height: 90px; border-radius: 50%;
+      background: rgba(255,255,255,0.12); pointer-events: none;
+    }
+    .kpi::after {
+      content: ''; position: absolute; bottom: -24px; left: 30%;
+      width: 60px; height: 60px; border-radius: 50%;
+      background: rgba(255,255,255,0.07); pointer-events: none;
+    }
+    .kpi-icon { position: absolute; top: 16px; right: 16px; opacity: 0.5; width: 22px; height: 22px; }
+    .kpi-indigo { background: linear-gradient(135deg, #4338ca 0%, #6366f1 100%); }
+    .kpi-green  { background: linear-gradient(135deg, #047857 0%, #10b981 100%); }
+    .kpi-amber  { background: linear-gradient(135deg, #92400e 0%, #f59e0b 100%); }
+    .kpi-slate  { background: linear-gradient(135deg, #1e293b 0%, #475569 100%); }
+    .kpi-red    { background: linear-gradient(135deg, #991b1b 0%, #f87171 100%); }
+
+    /* ── LABELS & TYPOGRAPHY ───────────────────────────── */
+    .section-label {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.11em;
+      text-transform: uppercase; color: #94a3b8; margin-bottom: 14px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .section-label::before {
+      content: ''; display: inline-block; width: 12px; height: 2px;
+      border-radius: 1px; background: currentColor; opacity: 0.6;
+    }
+    .field-label {
+      display: flex; align-items: center; gap: 2px;
+      font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 6px;
+    }
+
+    /* ── FORM CONTROLS ─────────────────────────────────── */
+    input[type="number"], select {
+      width: 100%; border: 1.5px solid #e5e7eb; border-radius: 10px;
+      padding: 9px 12px; font-size: 14px; font-family: inherit;
+      color: #111827; background: white;
+      transition: border-color 0.15s, box-shadow 0.15s; appearance: auto;
+    }
+    input[type="number"]:hover, select:hover { border-color: #c7d2fe; }
+    input[type="number"]:focus, select:focus {
+      outline: none; border-color: #6366f1;
+      box-shadow: 0 0 0 3px rgba(99,102,241,0.14);
+    }
+
+    /* ── TOOLTIP ───────────────────────────────────────── */
+    .tip {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 15px; height: 15px; background: #dde1e9; border-radius: 50%;
+      font-size: 9px; font-weight: 700; color: #64748b;
+      cursor: help; margin-left: 4px; position: relative; vertical-align: middle;
+    }
+    .tip:hover::after {
+      content: attr(data-tip);
+      position: absolute; bottom: 130%; left: 50%; transform: translateX(-50%);
+      background: #0f172a; color: white; font-size: 11.5px; font-weight: 400;
+      padding: 7px 11px; border-radius: 8px; line-height: 1.5;
+      z-index: 50; pointer-events: none; width: 210px; text-align: left;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+    }
+
+    /* ── RESULT BANNERS ────────────────────────────────── */
+    .result-banner {
+      border-radius: 14px; padding: 18px 22px; color: white;
+      position: relative; overflow: hidden;
+    }
+    .result-banner::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 100%;
+      background: linear-gradient(180deg, rgba(255,255,255,0.1) 0%, transparent 60%);
+      pointer-events: none;
+    }
+    .banner-sig-up { background: linear-gradient(135deg, #047857 0%, #059669 60%, #10b981 100%); }
+    .banner-sig-dn { background: linear-gradient(135deg, #991b1b 0%, #dc2626 60%, #f87171 100%); }
+    .banner-border { background: linear-gradient(135deg, #78350f 0%, #d97706 60%, #fbbf24 100%); }
+    .banner-none   { background: linear-gradient(135deg, #1e293b 0%, #334155 60%, #475569 100%); }
+    .banner-safe   { background: linear-gradient(135deg, #047857 0%, #059669 100%); }
+
+    /* ── ALERT BANNERS ─────────────────────────────────── */
+    .alert {
+      border-radius: 10px; padding: 12px 16px;
+      display: flex; align-items: flex-start; gap: 10px;
+      font-size: 13px; line-height: 1.5; margin-bottom: 8px;
+    }
+    .alert-warn { background: #fffbeb; border: 1px solid #fde68a; color: #78350f; }
+    .alert-error { background: #fef2f2; border: 1px solid #fca5a5; color: #7f1d1d; }
+    .alert-icon { font-size: 15px; flex-shrink: 0; margin-top: 1px; }
+
+    /* ── CONFIDENCE BAR ────────────────────────────────── */
+    .conf-bar { height: 8px; border-radius: 4px; background: #e2e8f0; overflow: hidden; }
+    .conf-fill {
+      height: 100%; border-radius: 4px;
+      background: linear-gradient(90deg, #818cf8, #6366f1, #4f46e5);
+      transition: width 0.55s cubic-bezier(0.4,0,0.2,1);
+    }
+
+    /* ── TOGGLE GROUP ──────────────────────────────────── */
+    .toggle-group { display:flex; border:1.5px solid #e5e7eb; border-radius:10px; overflow:hidden; }
+    .toggle-btn {
+      flex:1; padding:9px 0; font-size:13px; font-weight:600; font-family:inherit;
+      cursor:pointer; transition:all 0.15s; background:white; color:#64748b; border:none;
+    }
+    .toggle-btn.on { background:#4f46e5; color:white; }
+    .toggle-btn:not(.on):hover { background:#f8fafc; }
+
+    /* ── DATA / TABLE ROWS ─────────────────────────────── */
+    .data-row {
+      display:flex; justify-content:space-between; align-items:center;
+      padding:8px 0; border-bottom:1px solid #f8fafc;
+    }
+    .data-row:last-child { border-bottom:none; }
+    .data-label { font-size:13px; color:#6b7280; }
+    .data-val   { font-size:13px; font-weight:600; color:#111827; }
+
+    .sig-table { width:100%; border-collapse:collapse; font-size:13px; }
+    .sig-table th {
+      font-size:10.5px; font-weight:700; text-transform:uppercase;
+      letter-spacing:0.07em; color:#9ca3af; padding:6px 10px; text-align:center;
+    }
+    .sig-table th:first-child { text-align:left; }
+    .sig-table td { padding:8px 10px; text-align:center; }
+    .sig-table td:first-child { text-align:left; color:#6b7280; font-size:12.5px; }
+    .sig-table tr { border-bottom:1px solid #f8fafc; }
+    .sig-table tr:last-child { border-bottom:none; }
+    .sig-badge-yes { display:inline-block; background:#d1fae5; color:#065f46; border-radius:6px; padding:3px 10px; font-size:11.5px; font-weight:700; }
+    .sig-badge-no  { display:inline-block; background:#f1f5f9; color:#6b7280; border-radius:6px; padding:3px 10px; font-size:11.5px; font-weight:700; }
+    .sig-badge-harm { display:inline-block; background:#fee2e2; color:#991b1b; border-radius:6px; padding:3px 10px; font-size:11.5px; font-weight:700; }
+    .sig-badge-safe { display:inline-block; background:#d1fae5; color:#065f46; border-radius:6px; padding:3px 10px; font-size:11.5px; font-weight:700; }
+
+    /* ── CHART LEGEND ──────────────────────────────────── */
+    .chart-legend { display:flex; flex-wrap:wrap; gap:12px; margin-top:10px; }
+    .legend-item { display:flex; align-items:center; gap:6px; font-size:11.5px; color:#6b7280; }
+    .legend-swatch { width:14px; height:14px; border-radius:3px; flex-shrink:0; }
+
+    /* ── MISC ──────────────────────────────────────────── */
+    .uplift-pos { color:#059669; }
+    .uplift-neg { color:#dc2626; }
+    .sens-table th { font-size:10.5px; font-weight:700; color:#9ca3af; text-transform:uppercase; letter-spacing:0.07em; padding:8px 6px; }
+    .sens-table td { padding:8px 6px; font-size:13px; }
+    .sens-table tr { border-bottom:1px solid #f8fafc; }
+    .sens-table tr:last-child { border-bottom:none; }
+    .sens-table tr.hi td { color:#4338ca; font-weight:700; }
+    .sens-table tr.hi { background:#eef2ff; }
+    .divider { border:none; border-top:1px solid #f1f5f9; margin:16px 0; }
+  </style>
 </head>
+
 <body>
 
-<header class="site-header">
-  <div class="wrap">
-    <h1>A/B CRO Test Calculator</h1>
-    <p>Plan experiments and evaluate results with statistical rigour</p>
+<!-- ═══════════════════════════════════════════════════
+     HEADER
+═══════════════════════════════════════════════════════ -->
+<div style="background:linear-gradient(135deg,#1e1b4b 0%,#3730a3 35%,#4f46e5 65%,#7c3aed 100%);position:relative;overflow:hidden;">
+  <div style="position:absolute;top:-60px;right:-40px;width:260px;height:260px;border-radius:50%;background:rgba(255,255,255,0.06);pointer-events:none;"></div>
+  <div style="position:absolute;bottom:-80px;right:160px;width:180px;height:180px;border-radius:50%;background:rgba(255,255,255,0.04);pointer-events:none;"></div>
+  <div style="position:absolute;top:40px;left:-30px;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,0.03);pointer-events:none;"></div>
+  <svg style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;opacity:0.15;" aria-hidden="true">
+    <defs><pattern id="dots" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse"><circle cx="1.5" cy="1.5" r="1.5" fill="white"/></pattern></defs>
+    <rect width="100%" height="100%" fill="url(#dots)"/>
+  </svg>
+  <div class="max-w-5xl mx-auto px-6 py-10" style="position:relative;">
+    <div class="flex items-center gap-4">
+      <div style="width:52px;height:52px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.25);border-radius:14px;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px);flex-shrink:0;">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+          <path d="M9 3H15M9 3V10L4.5 17.5C4 18.4 4.6 19.5 5.7 19.5H18.3C19.4 19.5 20 18.4 19.5 17.5L15 10V3M9 3H15" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="8.5" cy="16" r="1" fill="white" opacity="0.8"/>
+          <circle cx="12" cy="14.5" r="1.2" fill="white"/>
+          <circle cx="15.5" cy="16.5" r="0.8" fill="white" opacity="0.7"/>
+        </svg>
+      </div>
+      <div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+          <h1 style="font-size:22px;font-weight:800;color:white;letter-spacing:-0.02em;line-height:1;">CRO A/B Testing Suite</h1>
+          <span style="font-size:10px;font-weight:700;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.25);color:white;padding:2px 8px;border-radius:999px;letter-spacing:0.05em;">FREE TOOL</span>
+        </div>
+        <p style="color:rgba(199,210,254,0.9);font-size:13px;">Professional tools for statistical significance, sample sizing &amp; impact forecasting</p>
+      </div>
+    </div>
   </div>
-</header>
+</div>
 
-<main class="wrap">
 
-  <nav class="tab-nav">
-    <button class="tab-btn active" data-tab="part1">
-      <span class="tab-num">1</span> Sample Size &amp; Duration
+<!-- ═══════════════════════════════════════════════════
+     TAB NAVIGATION
+═══════════════════════════════════════════════════════ -->
+<div class="max-w-5xl mx-auto px-6 mt-6">
+  <div style="display:flex;gap:6px;background:white;padding:6px;border-radius:16px;box-shadow:0 1px 3px rgba(0,0,0,0.06),0 4px 12px rgba(0,0,0,0.04);border:1px solid rgba(15,23,42,0.06);">
+    <button class="tab-btn active flex-1 py-2.5 px-3 rounded-xl" onclick="switchTab(1)">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 6H3M21 12H3M21 18H3"/><path d="M6 6V4M12 12V10M18 18V16"/></svg>
+      MDE Calculator
     </button>
-    <button class="tab-btn" data-tab="part2">
-      <span class="tab-num">2</span> Test Evaluation
+    <button class="tab-btn flex-1 py-2.5 px-3 rounded-xl" onclick="switchTab(2)">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="12" width="5" height="9" rx="1"/><rect x="10" y="6" width="5" height="15" rx="1"/><rect x="17" y="2" width="5" height="19" rx="1"/></svg>
+      A/B Results
     </button>
-  </nav>
+    <button class="tab-btn flex-1 py-2.5 px-3 rounded-xl" onclick="switchTab(3)">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+      Revenue Impact
+    </button>
+  </div>
+</div>
 
-  <!-- ================================================================
-       PART 1 — SAMPLE SIZE & DURATION
-       ================================================================ -->
-  <section id="part1" class="tab-pane active">
-    <div class="two-col">
 
-      <div class="card">
-        <h2 class="card-title">Test Parameters</h2>
+<!-- ═══════════════════════════════════════════════════
+     CONTENT
+═══════════════════════════════════════════════════════ -->
+<div class="max-w-5xl mx-auto px-6 py-6 space-y-6">
 
-        <div class="field">
-          <label for="p1-cr">Baseline Conversion Rate (%)</label>
-          <input id="p1-cr" type="number" value="5" min="0.01" max="99" step="0.01">
-          <p class="hint">Your current conversion rate before the test</p>
+
+  <!-- ══════════════════════════════════════════════
+       TAB 1 — MDE / SAMPLE SIZE
+  ══════════════════════════════════════════════════ -->
+  <div id="tab-1" class="tab-pane active">
+    <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+
+      <div class="lg:col-span-2 card card-lift space-y-5">
+        <div class="section-label">Test Parameters</div>
+
+        <div>
+          <label class="field-label">Baseline Conversion Rate (%) <span class="tip" data-tip="Your current conversion rate before any changes.">?</span></label>
+          <input type="number" id="m-baseline" value="3" min="0.01" max="99.99" step="0.1" oninput="calcMDE()">
         </div>
-
-        <div class="field">
-          <label for="p1-visitors">Daily Visitors to Test Pages</label>
-          <input id="p1-visitors" type="number" value="1000" min="1" step="1">
-          <p class="hint">Total daily visitors split equally across both variations</p>
+        <div>
+          <label class="field-label">Minimum Detectable Effect <span class="tip" data-tip="The smallest lift you want to detect. Smaller MDE = longer test.">?</span></label>
+          <div class="flex gap-2">
+            <input type="number" id="m-mde" value="10" min="0.1" step="0.1" oninput="calcMDE()" style="flex:1;width:auto;">
+            <select id="m-mde-type" onchange="calcMDE()" style="width:136px;flex-shrink:0;">
+              <option value="relative">% Relative</option>
+              <option value="absolute">pp Absolute</option>
+            </select>
+          </div>
+          <div id="m-mde-preview" style="font-size:11.5px;color:#94a3b8;margin-top:5px;min-height:16px;"></div>
         </div>
-
-        <div class="field">
-          <label for="p1-mde">Minimum Detectable Effect — MDE (%)</label>
-          <input id="p1-mde" type="number" value="10" min="0.1" max="500" step="0.1">
-          <p class="hint">Relative uplift you want to detect (e.g. 10 = 10% relative improvement over baseline)</p>
+        <div>
+          <label class="field-label">Statistical Significance <span class="tip" data-tip="How certain you want to be the result isn't chance (1–α). 95% is industry standard.">?</span></label>
+          <select id="m-alpha" onchange="calcMDE()">
+            <option value="0.10">90% — Less strict</option>
+            <option value="0.05" selected>95% — Industry standard</option>
+            <option value="0.01">99% — More rigorous</option>
+          </select>
         </div>
-
-        <div class="field">
-          <label for="p1-sig">Statistical Significance</label>
-          <select id="p1-sig">
-            <option value="0.95">95%</option>
-            <option value="0.98">98%</option>
-            <option value="0.99">99%</option>
+        <div>
+          <label class="field-label">Statistical Power <span class="tip" data-tip="Probability of detecting a real effect when one exists (1–β). 80% is accepted standard.">?</span></label>
+          <select id="m-power" onchange="calcMDE()">
+            <option value="0.80" selected>80% — Standard</option>
+            <option value="0.85">85%</option>
+            <option value="0.90">90% — High sensitivity</option>
+          </select>
+        </div>
+        <div>
+          <label class="field-label">Number of Variants</label>
+          <select id="m-variants" onchange="calcMDE()">
+            <option value="2" selected>2 — Control + 1 Variant</option>
+            <option value="3">3 — Control + 2 Variants</option>
+            <option value="4">4 — Control + 3 Variants</option>
           </select>
         </div>
 
-        <div class="field" style="margin-bottom:0">
-          <label for="p1-power">Statistical Power</label>
-          <select id="p1-power">
-            <option value="0.80">80% (standard)</option>
-            <option value="0.90">90% (high confidence)</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="results-stack">
-
-        <div class="card">
-          <h2 class="card-title">Required Sample Size</h2>
-          <div class="metric-row">
-            <div class="metric">
-              <div class="metric-val" id="p1-n-per">—</div>
-              <div class="metric-lbl">Per Variation</div>
-            </div>
-            <div class="metric">
-              <div class="metric-val" id="p1-n-total">—</div>
-              <div class="metric-lbl">Total Visitors</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="card">
-          <h2 class="card-title">Estimated Test Duration</h2>
-          <div class="duration-display">
-            <div class="duration-num" id="p1-days">—</div>
-            <div class="duration-unit">days</div>
-            <div class="duration-weeks" id="p1-weeks"></div>
-          </div>
-        </div>
-
-        <div class="card" style="margin-bottom:0">
-          <h2 class="card-title">Test Details</h2>
-          <table class="detail-table">
-            <tr><th>Baseline conversion rate</th><td id="p1-d-cr">—</td></tr>
-            <tr><th>Target CR with MDE applied</th><td id="p1-d-target">—</td></tr>
-            <tr><th>Absolute difference</th><td id="p1-d-abs">—</td></tr>
-            <tr><th>Visitors per variation per day</th><td id="p1-d-daily">—</td></tr>
-          </table>
-        </div>
-
-      </div>
-    </div>
-  </section>
-
-  <!-- ================================================================
-       PART 2 — TEST EVALUATION
-       ================================================================ -->
-  <section id="part2" class="tab-pane">
-
-    <div class="card">
-      <h2 class="card-title">Test Results Data</h2>
-      <div class="two-col">
+        <hr class="divider">
+        <div class="section-label" style="margin-top:0;">Traffic Estimation</div>
         <div>
-          <div class="variation-label control">Control (A)</div>
-          <div class="field">
-            <label for="p2-va">Visitors A</label>
-            <input id="p2-va" type="number" min="1" step="1" placeholder="e.g. 10000">
-          </div>
-          <div class="field" style="margin-bottom:0">
-            <label for="p2-ca">Conversions A</label>
-            <input id="p2-ca" type="number" min="0" step="1" placeholder="e.g. 500">
-          </div>
+          <label class="field-label">Daily Visitors to Page</label>
+          <input type="number" id="m-daily" value="1000" min="1" oninput="calcMDE()">
         </div>
         <div>
-          <div class="variation-label variant">Variant (B)</div>
-          <div class="field">
-            <label for="p2-vb">Visitors B</label>
-            <input id="p2-vb" type="number" min="1" step="1" placeholder="e.g. 10000">
-          </div>
-          <div class="field" style="margin-bottom:0">
-            <label for="p2-cb">Conversions B</label>
-            <input id="p2-cb" type="number" min="0" step="1" placeholder="e.g. 530">
-          </div>
+          <label class="field-label">% of Traffic in Test <span class="tip" data-tip="Percentage of visitors who will be included in the experiment.">?</span></label>
+          <input type="number" id="m-traffic" value="100" min="1" max="100" oninput="calcMDE()">
         </div>
       </div>
 
-      <hr class="divider">
-
-      <div class="field" style="margin-bottom:0">
-        <label>Test Type</label>
-        <div class="toggle-group">
-          <button class="toggle-btn active" data-mode="standard">Standard A/B Test</button>
-          <button class="toggle-btn" data-mode="dnh">Do Not Harm</button>
+      <div class="lg:col-span-3 space-y-5">
+        <div class="grid grid-cols-2 gap-4">
+          <div class="kpi kpi-indigo">
+            <svg class="kpi-icon" viewBox="0 0 20 20" fill="white"><path d="M10 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM3.465 14.493a1.23 1.23 0 0 0 .41 1.412A9.957 9.957 0 0 0 10 18c2.31 0 4.438-.784 6.131-2.1.43-.333.604-.903.408-1.41a7.002 7.002 0 0 0-13.074.003Z"/></svg>
+            <div style="font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;opacity:0.7;margin-bottom:6px;">Sample Size / Variant</div>
+            <div style="font-size:30px;font-weight:800;line-height:1;letter-spacing:-0.02em;" id="m-r-sample">—</div>
+            <div style="font-size:11px;opacity:0.65;margin-top:5px;">visitors needed</div>
+          </div>
+          <div class="kpi kpi-green">
+            <svg class="kpi-icon" viewBox="0 0 20 20" fill="white"><path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm.75-13a.75.75 0 0 0-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 0 0 0-1.5h-3.25V5Z" clip-rule="evenodd"/></svg>
+            <div style="font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;opacity:0.7;margin-bottom:6px;">Test Duration</div>
+            <div style="font-size:30px;font-weight:800;line-height:1;letter-spacing:-0.02em;" id="m-r-days">—</div>
+            <div style="font-size:11px;opacity:0.65;margin-top:5px;">days estimated</div>
+          </div>
+          <div class="kpi kpi-slate">
+            <svg class="kpi-icon" viewBox="0 0 20 20" fill="white"><path d="M15.5 2A1.5 1.5 0 0 0 14 3.5v13a1.5 1.5 0 0 0 3 0v-13A1.5 1.5 0 0 0 15.5 2ZM9.5 6A1.5 1.5 0 0 0 8 7.5v9A1.5 1.5 0 0 0 11 16.5v-9A1.5 1.5 0 0 0 9.5 6ZM3.5 10A1.5 1.5 0 0 0 2 11.5v5A1.5 1.5 0 0 0 5 16.5v-5A1.5 1.5 0 0 0 3.5 10Z"/></svg>
+            <div style="font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;opacity:0.7;margin-bottom:6px;">Total Visitors Needed</div>
+            <div style="font-size:30px;font-weight:800;line-height:1;letter-spacing:-0.02em;" id="m-r-total">—</div>
+            <div style="font-size:11px;opacity:0.65;margin-top:5px;">across all variants</div>
+          </div>
+          <div class="kpi kpi-amber">
+            <svg class="kpi-icon" viewBox="0 0 20 20" fill="white"><path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm0-2a6 6 0 1 1 0-12 6 6 0 0 1 0 12Zm0-2a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm0-2a2 2 0 1 1 0-4 2 2 0 0 1 0 4Z" clip-rule="evenodd"/></svg>
+            <div style="font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;opacity:0.7;margin-bottom:6px;">Absolute MDE</div>
+            <div style="font-size:30px;font-weight:800;line-height:1;letter-spacing:-0.02em;" id="m-r-abs">—</div>
+            <div style="font-size:11px;opacity:0.65;margin-top:5px;">percentage points</div>
+          </div>
         </div>
-        <p class="hint" id="p2-mode-hint">
-          Tests whether Variant B shows a statistically significant improvement over Control A.
-        </p>
+
+        <div class="card">
+          <div class="section-label">Duration Guidance</div>
+          <div id="m-guidance" style="font-size:13.5px;color:#374151;line-height:1.6;">
+            <p style="color:#94a3b8;">Enter your parameters above to see personalised guidance.</p>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="section-label">Sensitivity — Days to Significance by MDE</div>
+          <div style="overflow-x:auto;">
+            <table class="sens-table" style="width:100%;border-collapse:collapse;">
+              <thead>
+                <tr style="border-bottom:1.5px solid #f1f5f9;">
+                  <th style="text-align:left;">MDE (relative)</th>
+                  <th style="text-align:right;">Sample / variant</th>
+                  <th style="text-align:right;">Days</th>
+                </tr>
+              </thead>
+              <tbody id="m-table">
+                <tr><td colspan="3" style="text-align:center;color:#d1d5db;padding:18px;">Enter parameters above</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
-
-    <div id="p2-alerts"></div>
-
-    <div id="p2-empty" class="card empty-state">
-      Enter your test data above to see results
-    </div>
-
-    <div id="p2-results" class="hidden">
-
-      <div class="card">
-        <h2 class="card-title">Summary</h2>
-        <div class="metric-row three">
-          <div class="metric">
-            <div class="metric-val" id="p2-cra">—</div>
-            <div class="metric-lbl">Conversion Rate A</div>
-          </div>
-          <div class="metric">
-            <div class="metric-val" id="p2-crb">—</div>
-            <div class="metric-lbl">Conversion Rate B</div>
-          </div>
-          <div class="metric">
-            <div class="metric-val" id="p2-uplift">—</div>
-            <div class="metric-lbl">Relative Uplift</div>
-          </div>
-        </div>
-        <div class="metric-row three" style="margin-top:.75rem">
-          <div class="metric">
-            <div class="metric-val" id="p2-z">—</div>
-            <div class="metric-lbl">Z-Score</div>
-          </div>
-          <div class="metric">
-            <div class="metric-val" id="p2-pval">—</div>
-            <div class="metric-lbl" id="p2-pval-lbl">P-Value</div>
-          </div>
-          <div class="metric">
-            <div class="metric-val" id="p2-power">—</div>
-            <div class="metric-lbl">Observed Power</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="card">
-        <h2 class="card-title">Distribution Chart</h2>
-        <p class="card-desc" id="p2-chart-desc"></p>
-        <canvas id="p2-canvas"></canvas>
-        <div class="chart-legend" id="p2-chart-legend"></div>
-      </div>
-
-      <div class="card">
-        <h2 class="card-title" id="p2-result-title">Results by Confidence Level</h2>
-        <p class="card-desc" id="p2-result-desc"></p>
-        <div class="conf-table-wrap">
-          <table class="conf-table">
-            <thead>
-              <tr>
-                <th></th>
-                <th>95% Confidence</th>
-                <th>98% Confidence</th>
-                <th>99% Confidence</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>Result</td>
-                <td id="r-95">—</td>
-                <td id="r-98">—</td>
-                <td id="r-99">—</td>
-              </tr>
-              <tr>
-                <td id="crit-lbl">Critical Z</td>
-                <td id="z-95">—</td>
-                <td id="z-98">—</td>
-                <td id="z-99">—</td>
-              </tr>
-              <tr>
-                <td>Your Z-Score</td>
-                <td id="yz-95">—</td>
-                <td id="yz-98">—</td>
-                <td id="yz-99">—</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div class="card" style="margin-bottom:0">
-        <h2 class="card-title">Statistical Details</h2>
-        <table class="detail-table">
-          <tr><th>Visitors A</th><td id="det-va">—</td></tr>
-          <tr><th>Conversions A</th><td id="det-ca">—</td></tr>
-          <tr><th>Conversion Rate A</th><td id="det-cra">—</td></tr>
-          <tr><th>Visitors B</th><td id="det-vb">—</td></tr>
-          <tr><th>Conversions B</th><td id="det-cb">—</td></tr>
-          <tr><th>Conversion Rate B</th><td id="det-crb">—</td></tr>
-          <tr><th>Standard Error A</th><td id="det-sea">—</td></tr>
-          <tr><th>Standard Error B</th><td id="det-seb">—</td></tr>
-          <tr><th>SE of difference (unpooled)</th><td id="det-sed">—</td></tr>
-          <tr><th>Z-Score</th><td id="det-z">—</td></tr>
-        </table>
-      </div>
-
-    </div>
-  </section>
-
-</main>
-
-<footer>
-  <div class="wrap">
-    <p>A/B CRO Test Calculator &mdash; Frequentist two-proportion Z-test &mdash; One-sided hypothesis</p>
   </div>
-</footer>
 
-<script src="app.js"></script>
+
+  <!-- ══════════════════════════════════════════════
+       TAB 2 — A/B RESULTS
+  ══════════════════════════════════════════════════ -->
+  <div id="tab-2" class="tab-pane">
+    <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+
+      <!-- ── Inputs ── -->
+      <div class="lg:col-span-2 space-y-4">
+
+        <div class="card card-lift">
+          <div class="section-label" style="color:#9ca3af;">Control Group</div>
+          <div class="space-y-3">
+            <div><label class="field-label">Visitors</label><input type="number" id="ab-cn" value="10000" min="1" oninput="calcAB()"></div>
+            <div><label class="field-label">Conversions</label><input type="number" id="ab-cc" value="300" min="0" oninput="calcAB()"></div>
+            <div style="background:#f8fafc;border-radius:10px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;border:1px solid #f1f5f9;">
+              <span style="font-size:12px;color:#9ca3af;font-weight:500;">Conversion Rate</span>
+              <span style="font-size:15px;font-weight:700;color:#111827;" id="ab-ctrl-rate">3.00%</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card card-lift" style="border-left:3px solid #6366f1;">
+          <div class="section-label" style="color:#6366f1;">Variant Group</div>
+          <div class="space-y-3">
+            <div><label class="field-label">Visitors</label><input type="number" id="ab-vn" value="10000" min="1" oninput="calcAB()"></div>
+            <div><label class="field-label">Conversions</label><input type="number" id="ab-vc" value="340" min="0" oninput="calcAB()"></div>
+            <div style="background:#eef2ff;border-radius:10px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;border:1px solid #e0e7ff;">
+              <span style="font-size:12px;color:#818cf8;font-weight:500;">Conversion Rate</span>
+              <span style="font-size:15px;font-weight:700;color:#4338ca;" id="ab-var-rate">3.40%</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card card-lift">
+          <div class="section-label">Test Settings</div>
+          <div class="space-y-4">
+            <div>
+              <label class="field-label" style="margin-bottom:8px;">
+                Test Type
+                <span class="tip" data-tip="Standard: tests if variant is better. Do Not Harm: tests that variant isn't hurting performance — used when shipping changes where you just need to confirm no regression.">?</span>
+              </label>
+              <div class="toggle-group">
+                <button id="tog-std" class="toggle-btn on" onclick="setTestMode('standard')">Standard A/B</button>
+                <button id="tog-dnh" class="toggle-btn" onclick="setTestMode('dnh')">Do Not Harm</button>
+              </div>
+              <div id="ab-mode-hint" style="font-size:11.5px;color:#94a3b8;margin-top:6px;line-height:1.5;">Tests whether the variant shows a statistically significant improvement.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Results ── -->
+      <div class="lg:col-span-3 space-y-4">
+
+        <!-- Warnings (SRM, low data) -->
+        <div id="ab-warnings"></div>
+
+        <!-- Banner -->
+        <div id="ab-banner" class="result-banner banner-none">
+          <div style="display:flex;align-items:center;gap:14px;">
+            <div style="font-size:36px;line-height:1;flex-shrink:0;" id="ab-banner-icon">📊</div>
+            <div>
+              <div style="font-size:15px;font-weight:700;margin-bottom:3px;" id="ab-banner-title">Enter data to calculate</div>
+              <div style="font-size:13px;opacity:0.82;" id="ab-banner-sub"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stat pills -->
+        <div class="grid grid-cols-4 gap-3">
+          <div class="card" style="text-align:center;padding:14px;">
+            <div style="font-size:10px;color:#9ca3af;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;margin-bottom:5px;">Confidence</div>
+            <div style="font-size:19px;font-weight:800;color:#111827;" id="ab-confidence">—</div>
+          </div>
+          <div class="card" style="text-align:center;padding:14px;">
+            <div style="font-size:10px;color:#9ca3af;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;margin-bottom:5px;">Relative Uplift</div>
+            <div style="font-size:19px;font-weight:800;" id="ab-uplift-rel">—</div>
+          </div>
+          <div class="card" style="text-align:center;padding:14px;">
+            <div style="font-size:10px;color:#9ca3af;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;margin-bottom:5px;">Abs Diff</div>
+            <div style="font-size:19px;font-weight:800;color:#111827;" id="ab-uplift-abs">—</div>
+          </div>
+          <div class="card" style="text-align:center;padding:14px;">
+            <div style="font-size:10px;color:#9ca3af;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;margin-bottom:5px;">Obs. Power</div>
+            <div style="font-size:19px;font-weight:800;color:#111827;" id="ab-power">—</div>
+          </div>
+        </div>
+
+        <!-- Confidence bar + z/p -->
+        <div class="card">
+          <div class="section-label">Confidence Level</div>
+          <div class="conf-bar" style="margin-bottom:8px;"><div class="conf-fill" id="ab-conf-fill" style="width:0%;"></div></div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:700;color:#94a3b8;margin-bottom:14px;">
+            <span>0%</span><span style="color:#f59e0b;">95%</span><span style="color:#6366f1;">98%</span><span style="color:#10b981;">99%</span><span>100%</span>
+          </div>
+          <div class="grid grid-cols-2 gap-0">
+            <div class="data-row" style="margin-right:20px;"><span class="data-label">Z-score</span><span class="data-val" id="ab-zscore">—</span></div>
+            <div class="data-row"><span class="data-label">P-value</span><span class="data-val" id="ab-pvalue">—</span></div>
+          </div>
+        </div>
+
+        <!-- Bar chart -->
+        <div class="card">
+          <div class="section-label">Conversion Rate Comparison</div>
+          <div style="height:185px;position:relative;"><canvas id="ab-bar-chart"></canvas></div>
+        </div>
+
+        <!-- Distribution chart (canvas-based) -->
+        <div class="card">
+          <div class="section-label">Statistical Distribution <span class="tip" style="margin-left:2px;" data-tip="Shaded zones show where your result would reach each confidence level. The arrow shows where your Z-score lands.">?</span></div>
+          <div style="position:relative;"><canvas id="ab-dist-canvas" style="display:block;width:100%;"></canvas></div>
+          <div class="chart-legend" id="ab-dist-legend"></div>
+        </div>
+
+        <!-- Significance table -->
+        <div class="card">
+          <div class="section-label" id="ab-sig-table-label">Results at Each Confidence Level</div>
+          <div style="overflow-x:auto;">
+            <table class="sig-table">
+              <thead>
+                <tr style="border-bottom:1.5px solid #f1f5f9;">
+                  <th></th>
+                  <th>95%</th>
+                  <th>98%</th>
+                  <th>99%</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td>Result</td><td id="sig-r-95">—</td><td id="sig-r-98">—</td><td id="sig-r-99">—</td></tr>
+                <tr><td id="sig-crit-lbl">Critical Z</td><td id="sig-z-95">—</td><td id="sig-z-98">—</td><td id="sig-z-99">—</td></tr>
+                <tr><td>Your Z-score</td><td id="sig-yz-95">—</td><td id="sig-yz-98">—</td><td id="sig-yz-99">—</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ══════════════════════════════════════════════
+       TAB 3 — REVENUE IMPACT
+  ══════════════════════════════════════════════════ -->
+  <div id="tab-3" class="tab-pane">
+    <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+
+      <div class="lg:col-span-2 card card-lift space-y-5">
+        <div class="section-label">Test Configuration</div>
+        <div>
+          <label class="field-label" style="margin-bottom:8px;">Metric Type</label>
+          <div class="toggle-group">
+            <button id="tog-rev" class="toggle-btn on" onclick="setMetric('revenue')">£ Revenue</button>
+            <button id="tog-ord" class="toggle-btn" onclick="setMetric('orders')"># Orders</button>
+          </div>
+        </div>
+        <div>
+          <label class="field-label" id="ri-daily-label">Daily Revenue (£)</label>
+          <input type="number" id="ri-daily" value="10000" min="0" oninput="calcImpact()">
+        </div>
+        <div>
+          <label class="field-label">Variant Uplift (%) <span class="tip" data-tip="Positive = variant is winning. Negative = variant is losing. E.g. -5 means 5% worse.">?</span></label>
+          <input type="number" id="ri-uplift" value="-5" step="0.1" oninput="calcImpact()">
+          <div style="font-size:11.5px;color:#9ca3af;margin-top:5px;">Use negative to model a losing variant scenario.</div>
+        </div>
+        <div>
+          <label class="field-label">% of Traffic in Test <span class="tip" data-tip="What % of your total traffic enters the experiment.">?</span></label>
+          <input type="number" id="ri-traffic" value="100" min="1" max="100" oninput="calcImpact()">
+        </div>
+        <div>
+          <label class="field-label">Variant Traffic Split (%) <span class="tip" data-tip="% of test traffic exposed to the variant. 50 = 50/50 split. For 3 variants: 33.3%.">?</span></label>
+          <input type="number" id="ri-split" value="50" min="1" max="99" oninput="calcImpact()">
+        </div>
+        <div>
+          <label class="field-label">Test Duration (days)</label>
+          <input type="number" id="ri-duration" value="14" min="1" max="365" oninput="calcImpact()">
+        </div>
+      </div>
+
+      <div class="lg:col-span-3 space-y-4">
+        <div class="grid grid-cols-3 gap-4">
+          <div class="kpi kpi-indigo" id="ri-daily-card">
+            <svg class="kpi-icon" viewBox="0 0 20 20" fill="white"><path d="M11.983 1.907a.75.75 0 0 0-1.292-.657l-8.5 9.5A.75.75 0 0 0 2.75 12h6.572l-1.305 6.093a.75.75 0 0 0 1.292.657l8.5-9.5A.75.75 0 0 0 17.25 8h-6.572l1.305-6.093Z"/></svg>
+            <div style="font-size:9px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;opacity:0.7;margin-bottom:5px;">Daily Impact</div>
+            <div style="font-size:20px;font-weight:800;line-height:1;" id="ri-daily-val">—</div>
+            <div style="font-size:10px;opacity:0.65;margin-top:4px;">per day</div>
+          </div>
+          <div class="kpi kpi-indigo" id="ri-total-card">
+            <svg class="kpi-icon" viewBox="0 0 20 20" fill="white"><path fill-rule="evenodd" d="M2 3.5A1.5 1.5 0 0 1 3.5 2h13A1.5 1.5 0 0 1 18 3.5V15a1.5 1.5 0 0 1-1.5 1.5h-2.752l.083 1.5h.167a.75.75 0 0 1 0 1.5H6a.75.75 0 0 1 0-1.5h.166l.084-1.5H3.5A1.5 1.5 0 0 1 2 15V3.5ZM5.5 5a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9Zm0 3a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9Zm0 3a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9Z" clip-rule="evenodd"/></svg>
+            <div style="font-size:9px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;opacity:0.7;margin-bottom:5px;">Total Impact</div>
+            <div style="font-size:20px;font-weight:800;line-height:1;" id="ri-total-val">—</div>
+            <div style="font-size:10px;opacity:0.65;margin-top:4px;" id="ri-total-sub">over test</div>
+          </div>
+          <div class="kpi kpi-slate" id="ri-annual-card">
+            <svg class="kpi-icon" viewBox="0 0 20 20" fill="white"><path fill-rule="evenodd" d="M10.868 2.884c-.321-.772-1.415-.772-1.736 0l-1.83 4.401-4.753.381c-.833.067-1.171 1.107-.536 1.651l3.62 3.102-1.106 4.637c-.194.813.691 1.456 1.405 1.02L10 15.591l4.069 2.485c.713.436 1.598-.207 1.404-1.02l-1.106-4.637 3.62-3.102c.635-.544.297-1.584-.536-1.65l-4.752-.382-1.831-4.401Z" clip-rule="evenodd"/></svg>
+            <div style="font-size:9px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;opacity:0.7;margin-bottom:5px;">Annual Value</div>
+            <div style="font-size:20px;font-weight:800;line-height:1;" id="ri-annual-val">—</div>
+            <div style="font-size:10px;opacity:0.65;margin-top:4px;">if shipped to 100%</div>
+          </div>
+        </div>
+
+        <div id="ri-banner" class="result-banner banner-none">
+          <div style="font-size:13.5px;line-height:1.65;" id="ri-insight">Enter values above to see impact analysis.</div>
+        </div>
+
+        <div class="card">
+          <div class="section-label">Cumulative Impact Over Test Duration</div>
+          <div style="height:220px;position:relative;"><canvas id="ri-chart"></canvas></div>
+        </div>
+
+        <div class="card">
+          <div class="section-label">How This Breaks Down</div>
+          <div>
+            <div class="data-row"><span class="data-label">% of traffic in variant</span><span class="data-val" id="ri-bd-pct">—</span></div>
+            <div class="data-row"><span class="data-label">Variant daily metric</span><span class="data-val" id="ri-bd-var">—</span></div>
+            <div class="data-row"><span class="data-label">Control equivalent (same traffic)</span><span class="data-val" id="ri-bd-ctrl">—</span></div>
+            <div class="data-row"><span class="data-label">Daily difference</span><span class="data-val" id="ri-bd-diff">—</span></div>
+          </div>
+          <p style="font-size:11.5px;color:#94a3b8;margin-top:14px;padding-top:12px;border-top:1px solid #f8fafc;line-height:1.6;" id="ri-note"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════
+     FOOTER
+═══════════════════════════════════════════════════════ -->
+<div class="max-w-5xl mx-auto px-6 pb-12">
+  <div style="text-align:center;border-top:1px solid #e5e7eb;padding-top:24px;">
+    <p style="font-size:12px;color:#9ca3af;line-height:1.8;">
+      Tab 2 uses a one-sided frequentist Z-test for proportions (industry standard for CRO).<br>
+      Tab 1 uses a two-sided test for conservative sample size estimation. Always validate with your analytics platform.
+    </p>
+    <p style="font-size:11px;color:#d1d5db;margin-top:8px;">Open source · Built for CRO practitioners</p>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════
+     JAVASCRIPT
+═══════════════════════════════════════════════════════ -->
+<script>
+// ─── STATISTICS UTILITIES ─────────────────────────────────────
+
+function erf(x) {
+  const sign = x >= 0 ? 1 : -1;
+  x = Math.abs(x);
+  const t = 1 / (1 + 0.3275911 * x);
+  const y = 1 - ((((( 1.061405429 * t - 1.453152027) * t + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t) * Math.exp(-x * x);
+  return sign * y;
+}
+function normalCDF(x)  { return 0.5 * (1 + erf(x / Math.SQRT2)); }
+function normalPDF(x)  { return Math.exp(-0.5*x*x) / Math.sqrt(2*Math.PI); }
+
+function invNorm(p) {
+  const a = [-3.969683028665376e+01,2.209460984245205e+02,-2.759285104469687e+02,1.383577518672690e+02,-3.066479806614716e+01,2.506628277459239e+00];
+  const b = [-5.447609879822406e+01,1.615858368580409e+02,-1.556989798598866e+02,6.680131188771972e+01,-1.328068155288572e+01];
+  const c = [-7.784894002430293e-03,-3.223964580411365e-01,-2.400758277161838e+00,-2.549732539343734e+00,4.374664141464968e+00,2.938163982698783e+00];
+  const d = [7.784695709041462e-03,3.224671290700398e-01,2.445134137142996e+00,3.754408661907416e+00];
+  const pLow=0.02425,pHigh=1-pLow;
+  let q,r;
+  if(p<pLow){q=Math.sqrt(-2*Math.log(p));return(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])/((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);}
+  else if(p<=pHigh){q=p-0.5;r=q*q;return(((((a[0]*r+a[1])*r+a[2])*r+a[3])*r+a[4])*r+a[5])*q/(((((b[0]*r+b[1])*r+b[2])*r+b[3])*r+b[4])*r+1);}
+  else{q=Math.sqrt(-2*Math.log(1-p));return-(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])/((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);}
+}
+
+// One-sided critical values (industry standard for CRO)
+const CRIT_95 = invNorm(0.95); // ≈ 1.6449
+const CRIT_98 = invNorm(0.98); // ≈ 2.0537
+const CRIT_99 = invNorm(0.99); // ≈ 2.3263
+
+function n(v,dp=0) { if(!isFinite(v)||isNaN(v)) return '—'; return v.toLocaleString('en-GB',{minimumFractionDigits:dp,maximumFractionDigits:dp}); }
+function fmtMoney(v) { const abs=Math.abs(v),s=v<0?'-£':'+£'; if(abs>=1e6) return s+n(abs/1e6,2)+'M'; if(abs>=1000) return s+n(abs/1000,1)+'K'; return s+n(abs,0); }
+function fmtOrders(v) { return (v>=0?'+':'')+n(v,0); }
+
+// ─── TAB SWITCHING ────────────────────────────────────────────
+
+function switchTab(t) {
+  [1,2,3].forEach(i => {
+    document.getElementById('tab-'+i).classList.remove('active');
+    document.querySelectorAll('.tab-btn')[i-1].classList.remove('active');
+  });
+  document.getElementById('tab-'+t).classList.add('active');
+  document.querySelectorAll('.tab-btn')[t-1].classList.add('active');
+  if (t === 2) requestAnimationFrame(() => calcAB());
+}
+
+// ─── TAB 1: MDE CALCULATOR ───────────────────────────────────
+
+function calcMDE() {
+  const baseline = parseFloat(document.getElementById('m-baseline').value) / 100;
+  const mdeVal   = parseFloat(document.getElementById('m-mde').value);
+  const mdeType  = document.getElementById('m-mde-type').value;
+  const alpha    = parseFloat(document.getElementById('m-alpha').value);
+  const power    = parseFloat(document.getElementById('m-power').value);
+  const variants = parseInt(document.getElementById('m-variants').value);
+  const daily    = parseFloat(document.getElementById('m-daily').value);
+  const traffic  = parseFloat(document.getElementById('m-traffic').value) / 100;
+
+  if ([baseline,mdeVal,daily,traffic].some(v => isNaN(v)||v<=0)) return;
+
+  const absMDE = mdeType==='relative' ? baseline*mdeVal/100 : mdeVal/100;
+  const p2 = baseline + absMDE;
+
+  document.getElementById('m-mde-preview').textContent = mdeType==='relative'
+    ? `= ${(absMDE*100).toFixed(3)}pp absolute  (${(baseline*100).toFixed(2)}% → ${(p2*100).toFixed(2)}%)`
+    : `= ${(absMDE/baseline*100).toFixed(1)}% relative uplift`;
+
+  if (p2<=0||p2>=1) return;
+
+  const za = invNorm(1-alpha/2);  // two-sided for conservative sample sizing
+  const zb = invNorm(power);
+
+  function sampleSize(p1,p2) {
+    return Math.ceil(Math.pow(za+zb,2)*(p1*(1-p1)+p2*(1-p2))/Math.pow(p2-p1,2));
+  }
+
+  const ns   = sampleSize(baseline,p2);
+  const tot  = ns*variants;
+  const days = Math.ceil(tot/(daily*traffic));
+
+  document.getElementById('m-r-sample').textContent = ns.toLocaleString('en-GB');
+  document.getElementById('m-r-days').textContent   = days.toLocaleString('en-GB');
+  document.getElementById('m-r-total').textContent  = tot.toLocaleString('en-GB');
+  document.getElementById('m-r-abs').textContent    = (Math.abs(absMDE)*100).toFixed(3)+'pp';
+
+  let g = '';
+  if (days<7)
+    g=`<div style="display:flex;gap:8px;color:#92400e;"><span>⚠️</span><span><strong>Short test warning:</strong> ${days} days may not capture weekly seasonality. Run at least 7 days, ideally 2 full business weeks.</span></div>`;
+  else if (days>90)
+    g=`<div style="display:flex;gap:8px;color:#7f1d1d;"><span>🛑</span><span><strong>Very long test:</strong> ${days} days suggests the MDE is too small or traffic too low. Raise MDE or increase traffic allocation.</span></div>`;
+  else
+    g=`<div style="display:flex;gap:8px;color:#064e3b;"><span>✅</span><span>At <strong>${days} days</strong> this is a reasonable duration. Start and end on the same weekday to control for seasonality.</span></div>`;
+
+  const perVar = Math.round(daily*traffic/variants);
+  g+=`<div style="display:flex;gap:8px;margin-top:10px;color:#374151;"><span>ℹ️</span><span>~<strong>${perVar.toLocaleString('en-GB')}</strong> visitors/variant/day. You need ~<strong>${Math.round(ns*baseline).toLocaleString('en-GB')}</strong> conversions per variant to reach significance.</span></div>`;
+  document.getElementById('m-guidance').innerHTML = g;
+
+  const rows=[5,10,15,20,25,30,50];
+  const myMdeRel = mdeType==='relative' ? Math.round(mdeVal) : Math.round(absMDE/baseline*100);
+  let tbody='';
+  rows.forEach(rel => {
+    const aMDE=baseline*rel/100,p2t=baseline+aMDE;
+    if (p2t>=1) return;
+    const nsr=sampleSize(baseline,p2t), dsr=Math.ceil(nsr*variants/(daily*traffic));
+    const hi=rel===myMdeRel;
+    tbody+=`<tr class="${hi?'hi':''}">
+      <td>${rel}%${hi?'&nbsp;◀':''}</td>
+      <td style="text-align:right;">${nsr.toLocaleString('en-GB')}</td>
+      <td style="text-align:right;">${dsr.toLocaleString('en-GB')}</td>
+    </tr>`;
+  });
+  document.getElementById('m-table').innerHTML = tbody||'<tr><td colspan="3" style="text-align:center;color:#d1d5db;padding:16px;">Invalid parameters</td></tr>';
+}
+
+// ─── TAB 2: A/B RESULTS ──────────────────────────────────────
+
+let abBarChart = null;
+let abTestMode = 'standard';
+
+function setTestMode(mode) {
+  abTestMode = mode;
+  document.getElementById('tog-std').className = 'toggle-btn ' + (mode==='standard'?'on':'');
+  document.getElementById('tog-dnh').className = 'toggle-btn ' + (mode==='dnh'?'on':'');
+  document.getElementById('ab-mode-hint').textContent = mode==='standard'
+    ? 'Tests whether the variant shows a statistically significant improvement.'
+    : 'Tests that the variant is not causing significant harm to conversions. Use when shipping a change where you just need to confirm no regression.';
+  document.getElementById('ab-sig-table-label').textContent = mode==='standard'
+    ? 'Results at Each Confidence Level (one-sided, improvement)'
+    : 'Do Not Harm — Results at Each Confidence Level (one-sided, harm)';
+  document.getElementById('sig-crit-lbl').textContent = mode==='standard' ? 'Required Z (upper)' : 'Harm threshold Z (lower)';
+  calcAB();
+}
+
+function calcAB() {
+  const nC  = parseFloat(document.getElementById('ab-cn').value);
+  const cC  = parseFloat(document.getElementById('ab-cc').value);
+  const nV  = parseFloat(document.getElementById('ab-vn').value);
+  const cV  = parseFloat(document.getElementById('ab-vc').value);
+
+  if ([nC,cC,nV,cV].some(v=>isNaN(v)||v<0)||nC<1||nV<1) return;
+
+  const pC = cC/nC, pV = cV/nV;
+  document.getElementById('ab-ctrl-rate').textContent = (pC*100).toFixed(2)+'%';
+  document.getElementById('ab-var-rate').textContent  = (pV*100).toFixed(2)+'%';
+
+  // Pooled Z-test
+  const pPool  = (cC+cV)/(nC+nV);
+  const se     = Math.sqrt(pPool*(1-pPool)*(1/nC+1/nV));
+  if (se===0) return;
+
+  const z      = (pV-pC)/se;
+  const relUp  = pC>0 ? (pV-pC)/pC*100 : 0;
+  const absUp  = (pV-pC)*100;
+
+  // One-sided p-values (industry standard for CRO)
+  const pValStd = 1 - normalCDF(z);      // P(Z > z) — improvement
+  const pValDnh = normalCDF(z);          // P(Z < z) — harm
+
+  const pVal    = abTestMode==='standard' ? pValStd : pValDnh;
+  const conf    = (1 - pVal) * 100;
+
+  // Observed power against 95% one-sided threshold
+  const obsPower = Math.max(0, Math.min(100, normalCDF(Math.abs(z) - CRIT_95)*100));
+
+  // ── Warnings ─────────────────────────────────────
+  let warningsHtml = '';
+
+  // Low data warning
+  if (cC<100||cV<100) {
+    warningsHtml += `<div class="alert alert-warn"><span class="alert-icon">⚠️</span><span><strong>Low data warning:</strong> Fewer than 100 conversions in one or more groups. Results may be unreliable — collect more data before drawing conclusions.</span></div>`;
+  }
+
+  // Sample Ratio Mismatch (SRM) — chi-square test
+  const total  = nC+nV;
+  const exp    = total/2;
+  const chiSq  = (Math.pow(nC-exp,2)+Math.pow(nV-exp,2))/exp;
+  const srmP   = 1-erf(Math.sqrt(chiSq/2));
+  if (srmP<0.01) {
+    warningsHtml += `<div class="alert alert-error"><span class="alert-icon">🚨</span><span><strong>Sample Ratio Mismatch (SRM) detected</strong> — your visitor split is significantly unequal (p = ${srmP.toFixed(4)}). Randomisation may be broken. Investigate before trusting these results.</span></div>`;
+  }
+
+  document.getElementById('ab-warnings').innerHTML = warningsHtml;
+
+  // ── Significance flags ───────────────────────────
+  const isSig95 = abTestMode==='standard' ? z>CRIT_95 : z<-CRIT_95;
+  const isSig98 = abTestMode==='standard' ? z>CRIT_98 : z<-CRIT_98;
+  const isSig99 = abTestMode==='standard' ? z>CRIT_99 : z<-CRIT_99;
+  const isAnySig = isSig95;
+
+  // ── Banner ───────────────────────────────────────
+  const banner = document.getElementById('ab-banner');
+  const icon   = document.getElementById('ab-banner-icon');
+  const title  = document.getElementById('ab-banner-title');
+  const sub    = document.getElementById('ab-banner-sub');
+  banner.className = 'result-banner ';
+
+  if (abTestMode==='standard') {
+    if (isAnySig && relUp>0) {
+      banner.classList.add('banner-sig-up'); icon.textContent='✅';
+      title.textContent = 'Statistically Significant — Variant Wins!';
+      sub.textContent   = `Variant is ${Math.abs(relUp).toFixed(1)}% better with ${conf.toFixed(1)}% confidence`;
+    } else if (isAnySig && relUp<=0) {
+      banner.classList.add('banner-sig-dn'); icon.textContent='🛑';
+      title.textContent = 'Significant — but Variant is Worse';
+      sub.textContent   = `Variant is ${Math.abs(relUp).toFixed(1)}% worse with ${conf.toFixed(1)}% confidence. Stop the test.`;
+    } else if (!isAnySig && Math.abs(z)>CRIT_95*0.85) {
+      banner.classList.add('banner-border'); icon.textContent='⏳';
+      title.textContent = 'Approaching Significance — Not Yet';
+      sub.textContent   = `${conf.toFixed(1)}% confidence. Continue gathering data.`;
+    } else {
+      banner.classList.add('banner-none'); icon.textContent='📊';
+      title.textContent = 'Not Yet Significant';
+      sub.textContent   = `${conf.toFixed(1)}% confidence. Need more data before drawing conclusions.`;
+    }
+  } else {
+    // DNH mode
+    if (isSig95) {
+      banner.classList.add('banner-sig-dn'); icon.textContent='🛑';
+      title.textContent = 'Harm Detected — Stop the Test';
+      sub.textContent   = `Variant is causing significant harm with ${conf.toFixed(1)}% confidence. Do not ship.`;
+    } else {
+      banner.classList.add('banner-safe'); icon.textContent='✅';
+      title.textContent = 'No Significant Harm Detected';
+      sub.textContent   = `${conf.toFixed(1)}% confidence the variant is not causing harm. Safe to consider shipping.`;
+    }
+  }
+
+  // ── Stat pills ───────────────────────────────────
+  const upEl = document.getElementById('ab-uplift-rel');
+  upEl.textContent = (relUp>0?'+':'')+relUp.toFixed(2)+'%';
+  upEl.className   = 'font-bold ' + (relUp>0?'uplift-pos':'uplift-neg');
+  upEl.style.cssText = 'font-size:19px;font-weight:800;';
+
+  document.getElementById('ab-confidence').textContent = conf.toFixed(1)+'%';
+  document.getElementById('ab-uplift-abs').textContent = (absUp>0?'+':'')+absUp.toFixed(3)+'pp';
+  document.getElementById('ab-zscore').textContent     = z.toFixed(3);
+  document.getElementById('ab-pvalue').textContent     = pVal<0.0001?'<0.0001':pVal.toFixed(4);
+  document.getElementById('ab-power').textContent      = obsPower.toFixed(1)+'%';
+
+  // ── Confidence bar ───────────────────────────────
+  const fill = document.getElementById('ab-conf-fill');
+  fill.style.width = Math.min(conf,100)+'%';
+  if (conf>=99)      fill.style.background='linear-gradient(90deg,#34d399,#10b981,#059669)';
+  else if (conf>=98) fill.style.background='linear-gradient(90deg,#818cf8,#6366f1,#4338ca)';
+  else if (conf>=95) fill.style.background='linear-gradient(90deg,#fcd34d,#f59e0b,#d97706)';
+  else               fill.style.background='#cbd5e1';
+
+  // ── Significance table ───────────────────────────
+  function sigBadge(isSig) {
+    if (abTestMode==='standard') {
+      return isSig
+        ? `<span class="sig-badge-yes">✓ Significant</span>`
+        : `<span class="sig-badge-no">✗ Not yet</span>`;
+    } else {
+      return isSig
+        ? `<span class="sig-badge-harm">✗ Harm detected</span>`
+        : `<span class="sig-badge-safe">✓ No harm</span>`;
+    }
+  }
+  const critSign = abTestMode==='standard' ? '' : '−';
+  const critMult = abTestMode==='standard' ? 1 : -1;
+
+  document.getElementById('sig-r-95').innerHTML  = sigBadge(isSig95);
+  document.getElementById('sig-r-98').innerHTML  = sigBadge(isSig98);
+  document.getElementById('sig-r-99').innerHTML  = sigBadge(isSig99);
+  document.getElementById('sig-z-95').textContent = critSign+CRIT_95.toFixed(3);
+  document.getElementById('sig-z-98').textContent = critSign+CRIT_98.toFixed(3);
+  document.getElementById('sig-z-99').textContent = critSign+CRIT_99.toFixed(3);
+  const zStr = z.toFixed(3);
+  ['95','98','99'].forEach(lvl => {
+    const el = document.getElementById('sig-yz-'+lvl);
+    el.textContent = zStr;
+    const isSigLvl = abTestMode==='standard' ? z>invNorm(+('0.'+lvl)) : z<-invNorm(+('0.'+lvl));
+    el.style.color = isSigLvl ? (abTestMode==='standard'?'#059669':'#dc2626') : '#6b7280';
+    el.style.fontWeight = isSigLvl ? '700' : '400';
+  });
+
+  // ── Charts ───────────────────────────────────────
+  drawBarChart(pC, pV);
+  requestAnimationFrame(() => drawDistCanvas(z, abTestMode));
+}
+
+function drawBarChart(pC, pV) {
+  const ctx = document.getElementById('ab-bar-chart').getContext('2d');
+  if (abBarChart) abBarChart.destroy();
+  abBarChart = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels:['Control','Variant'],
+      datasets:[{
+        data:[(pC*100).toFixed(3),(pV*100).toFixed(3)],
+        backgroundColor:['rgba(100,116,139,0.7)','rgba(79,70,229,0.75)'],
+        borderColor:['#64748b','#4338ca'],
+        borderWidth:2, borderRadius:8, borderSkipped:false,
+      }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`CR: ${c.raw}%`}}},
+      scales:{
+        y:{beginAtZero:false,ticks:{callback:v=>v+'%',font:{family:'Inter',size:11},color:'#94a3b8'},grid:{color:'#f8fafc'}},
+        x:{grid:{display:false},ticks:{font:{family:'Inter',size:12,weight:'600'},color:'#374151'}}
+      }
+    }
+  });
+}
+
+function drawDistCanvas(z, mode) {
+  const canvas = document.getElementById('ab-dist-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const dpr  = window.devicePixelRatio || 1;
+  const cssW = canvas.parentElement.clientWidth - 44;
+  const cssH = 210;
+
+  canvas.style.width  = cssW+'px';
+  canvas.style.height = cssH+'px';
+  canvas.width  = Math.round(cssW*dpr);
+  canvas.height = Math.round(cssH*dpr);
+  ctx.scale(dpr, dpr);
+
+  const W=cssW, H=cssH;
+  const padL=28, padR=28, padTop=34, padBot=38;
+  const plotW=W-padL-padR, plotH=H-padTop-padBot;
+  const zMin=-4, zMax=4, maxPDF=normalPDF(0);
+
+  function zToX(zv)   { return padL+((zv-zMin)/(zMax-zMin))*plotW; }
+  function pdfToY(pdf) { return padTop+plotH-(pdf/maxPDF)*plotH*0.92; }
+
+  function fillZone(z1, z2, color) {
+    const cz1=Math.max(z1,zMin), cz2=Math.min(z2,zMax);
+    if (cz1>=cz2) return;
+    ctx.beginPath();
+    ctx.moveTo(zToX(cz1), pdfToY(0));
+    for (let i=0;i<=120;i++) {
+      const zi=cz1+(i/120)*(cz2-cz1);
+      ctx.lineTo(zToX(zi), pdfToY(normalPDF(zi)));
+    }
+    ctx.lineTo(zToX(cz2), pdfToY(0));
+    ctx.closePath();
+    ctx.fillStyle=color; ctx.fill();
+  }
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Gridlines
+  ctx.strokeStyle='#f1f5f9'; ctx.lineWidth=1;
+  [-3,-2,-1,0,1,2,3].forEach(v=>{
+    ctx.beginPath(); ctx.moveTo(zToX(v),padTop); ctx.lineTo(zToX(v),padTop+plotH); ctx.stroke();
+  });
+
+  // Base fill
+  fillZone(zMin, zMax, 'rgba(226,232,240,0.3)');
+
+  // Significance zones — layered (lightest → darkest)
+  if (mode==='standard') {
+    fillZone(CRIT_95, zMax, 'rgba(134,239,172,0.45)');
+    fillZone(CRIT_98, zMax, 'rgba(74,222,128,0.52)');
+    fillZone(CRIT_99, zMax, 'rgba(22,163,74,0.60)');
+  } else {
+    fillZone(zMin, -CRIT_95, 'rgba(252,165,165,0.45)');
+    fillZone(zMin, -CRIT_98, 'rgba(248,113,113,0.52)');
+    fillZone(zMin, -CRIT_99, 'rgba(220,38,38,0.60)');
+  }
+
+  // Bell curve
+  ctx.beginPath();
+  for (let i=0;i<=300;i++) {
+    const zi=zMin+(i/300)*(zMax-zMin);
+    if(i===0) ctx.moveTo(zToX(zi),pdfToY(normalPDF(zi)));
+    else ctx.lineTo(zToX(zi),pdfToY(normalPDF(zi)));
+  }
+  ctx.strokeStyle='#6366f1'; ctx.lineWidth=2; ctx.setLineDash([]); ctx.stroke();
+
+  // X-axis baseline
+  ctx.beginPath(); ctx.moveTo(padL,padTop+plotH); ctx.lineTo(W-padR,padTop+plotH);
+  ctx.strokeStyle='#e2e8f0'; ctx.lineWidth=1; ctx.stroke();
+
+  // Critical value dashed lines
+  const crits = mode==='standard'
+    ? [{zv:CRIT_95,label:'95%'},{zv:CRIT_98,label:'98%'},{zv:CRIT_99,label:'99%'}]
+    : [{zv:-CRIT_99,label:'99%'},{zv:-CRIT_98,label:'98%'},{zv:-CRIT_95,label:'95%'}];
+  const critColors=['#94a3b8','#64748b','#334155'];
+
+  ctx.font=`10px Inter, sans-serif`;
+  crits.forEach(({zv,label},i)=>{
+    const x=zToX(zv);
+    ctx.setLineDash([4,3]);
+    ctx.beginPath(); ctx.moveTo(x,padTop); ctx.lineTo(x,padTop+plotH);
+    ctx.strokeStyle=critColors[i]; ctx.lineWidth=1.5; ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle=critColors[i]; ctx.textAlign='center';
+    ctx.fillText(label, x, padTop-12);
+  });
+
+  // Z-score line + arrow
+  const clampZ = Math.min(Math.max(z,zMin+0.01),zMax-0.01);
+  const zX = zToX(clampZ);
+  const isSig = mode==='standard' ? z>CRIT_95 : z<-CRIT_95;
+  const lineColor = mode==='standard'
+    ? (isSig?'#059669':'#6366f1')
+    : (isSig?'#dc2626':'#059669');
+
+  ctx.beginPath(); ctx.moveTo(zX,padTop-4); ctx.lineTo(zX,padTop+plotH);
+  ctx.strokeStyle=lineColor; ctx.lineWidth=2.5; ctx.setLineDash([]); ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(zX, padTop-4); ctx.lineTo(zX-5, padTop+9); ctx.lineTo(zX+5, padTop+9);
+  ctx.closePath(); ctx.fillStyle=lineColor; ctx.fill();
+
+  // Z-score label
+  ctx.font=`bold 11px Inter, sans-serif`;
+  ctx.fillStyle=lineColor; ctx.textAlign='center';
+  ctx.fillText(`z = ${z.toFixed(3)}`, zX, padTop+plotH+15);
+
+  // X-axis tick labels
+  ctx.font=`10px Inter, sans-serif`; ctx.fillStyle='#94a3b8';
+  [-4,-3,-2,-1,0,1,2,3,4].forEach(v=>{
+    ctx.textAlign='center'; ctx.fillText(v, zToX(v), padTop+plotH+29);
+  });
+
+  // Legend
+  const legendItems = mode==='standard' ? [
+    {color:'rgba(134,239,172,0.8)',label:'95% significance zone'},
+    {color:'rgba(74,222,128,0.85)',label:'98% significance zone'},
+    {color:'rgba(22,163,74,0.9)',label:'99% significance zone'},
+    {color:lineColor,label:`Your result  z = ${z.toFixed(3)}`},
+  ] : [
+    {color:'rgba(252,165,165,0.8)',label:'95% harm zone'},
+    {color:'rgba(248,113,113,0.85)',label:'98% harm zone'},
+    {color:'rgba(220,38,38,0.9)',label:'99% harm zone'},
+    {color:lineColor,label:`Your result  z = ${z.toFixed(3)}`},
+  ];
+  document.getElementById('ab-dist-legend').innerHTML = legendItems.map(({color,label})=>
+    `<div class="legend-item"><span class="legend-swatch" style="background:${color};"></span>${label}</div>`
+  ).join('');
+}
+
+window.addEventListener('resize', () => {
+  if (!document.getElementById('tab-2').classList.contains('active')) return;
+  const zEl = document.getElementById('ab-zscore');
+  const z = parseFloat(zEl.textContent);
+  if (!isNaN(z)) requestAnimationFrame(() => drawDistCanvas(z, abTestMode));
+});
+
+// ─── TAB 3: REVENUE IMPACT ───────────────────────────────────
+
+let riChart = null;
+let metricType = 'revenue';
+
+function setMetric(t) {
+  metricType=t;
+  document.getElementById('tog-rev').className='toggle-btn '+(t==='revenue'?'on':'');
+  document.getElementById('tog-ord').className='toggle-btn '+(t==='orders'?'on':'');
+  document.getElementById('ri-daily-label').textContent=t==='revenue'?'Daily Revenue (£)':'Daily Orders';
+  calcImpact();
+}
+
+function calcImpact() {
+  const daily    = parseFloat(document.getElementById('ri-daily').value);
+  const upliftPc = parseFloat(document.getElementById('ri-uplift').value)/100;
+  const trafficPc= parseFloat(document.getElementById('ri-traffic').value)/100;
+  const splitPc  = parseFloat(document.getElementById('ri-split').value)/100;
+  const dur      = parseInt(document.getElementById('ri-duration').value);
+
+  if ([daily,upliftPc,trafficPc,splitPc,dur].some(v=>isNaN(v))) return;
+
+  const variantFrac    = trafficPc*splitPc;
+  const dailyImpact    = daily*variantFrac*upliftPc;
+  const totalImpact    = dailyImpact*dur;
+  const annualValue    = daily*upliftPc*365;
+
+  const fmt=metricType==='revenue'?fmtMoney:fmtOrders;
+  const isPos=upliftPc>0;
+  const kpiClass='kpi '+(isPos?'kpi-green':upliftPc<0?'kpi-red':'kpi-slate');
+
+  document.getElementById('ri-daily-card').className=kpiClass;
+  document.getElementById('ri-total-card').className=kpiClass;
+  document.getElementById('ri-annual-card').className='kpi '+(isPos?'kpi-green':'kpi-slate');
+
+  document.getElementById('ri-daily-val').textContent=fmt(dailyImpact);
+  document.getElementById('ri-total-val').textContent=fmt(totalImpact);
+  document.getElementById('ri-total-sub').textContent=`over ${dur} days`;
+  document.getElementById('ri-annual-val').textContent=fmt(annualValue);
+
+  const banner=document.getElementById('ri-banner'), insight=document.getElementById('ri-insight');
+  banner.className='result-banner '+(isPos?'banner-sig-up':upliftPc<0?'banner-sig-dn':'banner-none');
+
+  const pctStr=(trafficPc*100).toFixed(0)+'%', splitStr=(splitPc*100).toFixed(0)+'%';
+  const fmtD=fmt(Math.abs(dailyImpact)), fmtT=fmt(Math.abs(totalImpact)), fmtA=fmt(Math.abs(annualValue));
+
+  if (upliftPc===0) {
+    insight.innerHTML='Zero uplift — no projected impact on '+(metricType==='revenue'?'revenue':'orders')+' during the test.';
+  } else if (isPos) {
+    insight.innerHTML=`<strong>Variant is winning.</strong> With ${pctStr} in test and ${splitStr} in the variant, you're generating <strong>${fmtD}/day</strong> in additional ${metricType}. Over ${dur} days: <strong>${fmtT}</strong> gained. If shipped to 100% of traffic, annual value is <strong>${fmtA}</strong>.`;
+  } else {
+    insight.innerHTML=`<strong>Variant is losing.</strong> With ${pctStr} in test and ${splitStr} in the variant, you're losing <strong>${fmtD}/day</strong>. Over ${dur} days: <strong>${fmtT}</strong> at risk. Check the A/B Results tab — if confidence is high, stop the test early.`;
+  }
+
+  const varMetric=daily*variantFrac*(1+upliftPc), ctrlMetric=daily*variantFrac;
+  const isMoney=metricType==='revenue';
+  document.getElementById('ri-bd-pct').textContent=(variantFrac*100).toFixed(1)+'% of all traffic';
+  document.getElementById('ri-bd-var').textContent=isMoney?'£'+n(varMetric,0):n(varMetric,0);
+  document.getElementById('ri-bd-ctrl').textContent=isMoney?'£'+n(ctrlMetric,0):n(ctrlMetric,0);
+  const diffEl=document.getElementById('ri-bd-diff');
+  diffEl.textContent=fmt(dailyImpact);
+  diffEl.style.color=isPos?'#059669':upliftPc<0?'#dc2626':'#6366f1';
+  document.getElementById('ri-note').textContent=isPos
+    ?'💡 Every extra day in test is a day without the full annual uplift. Once confident, ship fast.'
+    :'⚠️ Every day a losing variant runs compounds the loss. Stop early if you have statistical confidence the variant is worse.';
+
+  drawImpactChart(dailyImpact,dur);
+}
+
+function drawImpactChart(dailyImpact,dur) {
+  const ctx=document.getElementById('ri-chart').getContext('2d');
+  if (riChart) riChart.destroy();
+  const labels=Array.from({length:dur},(_,i)=>`Day ${i+1}`);
+  const data=Array.from({length:dur},(_,i)=>parseFloat((dailyImpact*(i+1)).toFixed(2)));
+  const isPos=dailyImpact>=0, col=isPos?'#10b981':'#ef4444', bg=isPos?'rgba(16,185,129,0.08)':'rgba(239,68,68,0.08)';
+  const isMoney=metricType==='revenue';
+  riChart=new Chart(ctx,{
+    type:'line',
+    data:{labels,datasets:[{
+      label:'Cumulative Impact',data,borderColor:col,backgroundColor:bg,borderWidth:2.5,
+      fill:true,tension:0.15,pointRadius:dur<=30?3:0,pointHoverRadius:6,
+      pointBackgroundColor:col,pointBorderColor:'white',pointBorderWidth:2,
+    }]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{backgroundColor:'#0f172a',titleFont:{family:'Inter',size:12},bodyFont:{family:'Inter',size:12},callbacks:{label:c=>{const v=c.raw;return isMoney?`Impact: ${v>=0?'+£':'-£'}${Math.abs(v).toLocaleString('en-GB')}`:(`Impact: ${v>=0?'+':''}${v.toLocaleString('en-GB')} orders`);}}}},
+      scales:{
+        x:{grid:{color:'#f8fafc'},ticks:{maxTicksLimit:10,font:{family:'Inter',size:11},color:'#94a3b8'}},
+        y:{grid:{color:'#f1f5f9'},ticks:{font:{family:'Inter',size:11},color:'#94a3b8',callback:v=>isMoney?(v>=0?'£':'-£')+Math.abs(v).toLocaleString('en-GB'):(v>=0?'+':'')+v.toLocaleString('en-GB')}}
+      }
+    }
+  });
+}
+
+// ─── INIT ─────────────────────────────────────────────────────
+calcMDE();
+calcAB();
+calcImpact();
+</script>
 </body>
 </html>
